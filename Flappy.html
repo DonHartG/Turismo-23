@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Colombia Flappy 🇨🇴</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%;
+    background: linear-gradient(180deg, #003893 0%, #FCD116 100%);
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+  }
+  .wrap {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+  }
+  h1 {
+    color: #fff;
+    text-shadow: 3px 3px 0 #CE1126, 6px 6px 0 #003893;
+    font-size: clamp(1.3rem, 5vw, 2.2rem);
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .subtitle {
+    color: #fff;
+    font-size: clamp(0.7rem, 3vw, 0.9rem);
+    margin-bottom: 10px;
+    text-align: center;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  }
+  .game-container {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    aspect-ratio: 9 / 16;
+    border: 4px solid #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #87CEEB;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+  }
+  .hud {
+    position: absolute;
+    top: 12px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .score-big {
+    color: #fff;
+    font-weight: bold;
+    font-size: clamp(2rem, 8vw, 3rem);
+    text-shadow: 3px 3px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+  }
+  .destination-banner {
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(252, 209, 22, 0.95);
+    color: #003893;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 2px solid #003893;
+    font-weight: bold;
+    font-size: clamp(0.7rem, 2.8vw, 0.95rem);
+    text-align: center;
+    pointer-events: none;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.4s;
+    max-width: 90%;
+    white-space: nowrap;
+  }
+  .destination-banner.show { opacity: 1; }
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 56, 147, 0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px;
+    z-index: 20;
+  }
+  .overlay.hidden { display: none; }
+  .overlay h2 {
+    color: #FCD116;
+    font-size: clamp(1.5rem, 6vw, 2.5rem);
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 0 #CE1126;
+  }
+  .overlay p {
+    color: #fff;
+    font-size: clamp(0.8rem, 3vw, 1rem);
+    margin-bottom: 6px;
+    line-height: 1.4;
+  }
+  .btn {
+    margin-top: 15px;
+    padding: 12px 28px;
+    background: #FCD116;
+    color: #003893;
+    border: 3px solid #fff;
+    border-radius: 8px;
+    font-family: inherit;
+    font-weight: bold;
+    font-size: clamp(1rem, 4vw, 1.3rem);
+    cursor: pointer;
+    box-shadow: 0 4px 0 #CE1126;
+    transition: transform 0.1s;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #CE1126; }
+  .touch-zone {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    cursor: pointer;
+  }
+  .footer {
+    margin-top: 10px;
+    color: #fff;
+    font-size: 0.75rem;
+    text-align: center;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🦅 COLOMBIA FLAPPY 🇨🇴</h1>
+  <p class="subtitle">Vuela por los destinos turísticos de Colombia</p>
+
+  <div class="game-container">
+    <canvas id="game"></canvas>
+    <div class="hud">
+      <div class="score-big" id="score">0</div>
+    </div>
+    <div class="destination-banner" id="banner">📍 Destino</div>
+    <div class="touch-zone" id="touchZone"></div>
+
+    <div class="overlay" id="startScreen">
+      <h2>¡A volar!</h2>
+      <p>🦅 Eres un cóndor andino</p>
+      <p>📍 Recorre 10 destinos turísticos</p>
+      <p>👆 Toca / Espacio / Click para aletear</p>
+      <p>⚠️ Evita los monumentos</p>
+      <button class="btn" id="startBtn">¡VOLAR!</button>
+    </div>
+
+    <div class="overlay hidden" id="gameOverScreen">
+      <h2>¡Fin del viaje!</h2>
+      <p id="finalScore">Puntos: 0</p>
+      <p id="bestScore">Récord: 0</p>
+      <p id="tip"></p>
+      <button class="btn" id="restartBtn">Volar de nuevo</button>
+    </div>
+  </div>
+
+  <p class="footer">Toca la pantalla para aletear · Descubre Colombia 🌎</p>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const bannerEl = document.getElementById('banner');
+  const startScreen = document.getElementById('startScreen');
+  const gameOverScreen = document.getElementById('gameOverScreen');
+  const finalScoreEl = document.getElementById('finalScore');
+  const bestScoreEl = document.getElementById('bestScore');
+  const tipEl = document.getElementById('tip');
+  const startBtn = document.getElementById('startBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const touchZone = document.getElementById('touchZone');
+
+  // Resolución interna (vertical, tipo Flappy)
+  const W = 360, H = 640;
+  canvas.width = W;
+  canvas.height = H;
+
+  const GRAVITY = 0.45;
+  const FLAP = -8;
+  const PIPE_GAP = 160;
+  const PIPE_WIDTH = 70;
+  const PIPE_SPEED = 2.5;
+  const PIPE_SPACING = 230;
+  const GROUND_H = 80;
+
+  // Destinos turísticos de Colombia
+  const destinations = [
+    { name: 'Cartagena de Indias', emoji: '🏰', color1: '#D2691E', color2: '#8B4513', tip: 'Ciudad amurallada, Patrimonio de la Humanidad' },
+    { name: 'Valle de Cocora', emoji: '🌴', color1: '#228B22', color2: '#006400', tip: 'Hogar de la palma de cera, árbol nacional' },
+    { name: 'Santuario Las Lajas', emoji: '⛪', color1: '#A9A9A9', color2: '#696969', tip: 'Basílica en el cañón del Guáitara, Ipiales' },
+    { name: 'Catedral de Sal', emoji: '⛏️', color1: '#DCDCDC', color2: '#A9A9A9', tip: 'Templo subterráneo en Zipaquirá' },
+    { name: 'Ciudad Perdida', emoji: '🏛️', color1: '#8B7355', color2: '#5C4033', tip: 'Teyuna, ciudad prehispánica en la Sierra Nevada' },
+    { name: 'Piedra del Peñol', emoji: '🪨', color1: '#808080', color2: '#4A4A4A', tip: 'Monolito de 220m en Guatapé, Antioquia' },
+    { name: 'Caño Cristales', emoji: '🌈', color1: '#FF1493', color2: '#FF4500', tip: 'El río de los 5 colores, Meta' },
+    { name: 'Parque Tayrona', emoji: '🏖️', color1: '#20B2AA', color2: '#008B8B', tip: 'Parque natural en la Sierra Nevada' },
+    { name: 'Plaza de Bolívar', emoji: '🗽', color1: '#CD853F', color2: '#8B6914', tip: 'Corazón histórico de Bogotá' },
+    { name: 'Eje Cafetero', emoji: '☕', color1: '#6F4E37', color2: '#3E2723', tip: 'Paisaje Cultural Patrimonio de la Humanidad' }
+  ];
+
+  let state = 'start';
+  let score = 0;
+  let best = +localStorage.getItem('colombiaFlappyBest') || 0;
+  let frame = 0;
+  let currentDestIdx = 0;
+  let bannerTimer = 0;
+
+  // Pájaro (cóndor)
+  const bird = {
+    x: W * 0.3,
+    y: H / 2,
+    w: 40,
+    h: 30,
+    vy: 0,
+    rot: 0,
+    flapAnim: 0
+  };
+
+  const pipes = [];
+  const clouds = [];
+  const particles = [];
+
+  function initClouds() {
+    clouds.length = 0;
+    for (let i = 0; i < 5; i++) {
+      clouds.push({
+        x: Math.random() * W,
+        y: 50 + Math.random() * 200,
+        s: 0.5 + Math.random() * 0.8,
+        speed: 0.3 + Math.random() * 0.4
+      });
+    }
+  }
+  initClouds();
+
+  function reset() {
+    bird.y = H / 2;
+    bird.vy = 0;
+    bird.rot = 0;
+    pipes.length = 0;
+    particles.length = 0;
+    score = 0;
+    frame = 0;
+    currentDestIdx = 0;
+    bannerTimer = 0;
+    showBanner(destinations[0]);
+    // Generar primeros tubos
+    for (let i = 0; i < 3; i++) {
+      spawnPipe(W + 200 + i * PIPE_SPACING);
+    }
+    initClouds();
+  }
+
+  function spawnPipe(x) {
+    const minTop = 80;
+    const maxTop = H - GROUND_H - PIPE_GAP - 80;
+    const topH = minTop + Math.random() * (maxTop - minTop);
+    const destIdx = Math.floor((x / PIPE_SPACING)) % destinations.length;
+    pipes.push({
+      x: x,
+      topH: topH,
+      passed: false,
+      dest: destinations[destIdx % destinations.length]
+    });
+  }
+
+  function showBanner(dest) {
+    bannerEl.textContent = `${dest.emoji} ${dest.name}`;
+    bannerEl.classList.add('show');
+    bannerTimer = 120;
+  }
+
+  function flap() {
+    if (state !== 'playing') return;
+    bird.vy = FLAP;
+    bird.flapAnim = 10;
+    // Partículas de plumas
+    for (let i = 0; i < 3; i++) {
+      particles.push({
+        x: bird.x,
+        y: bird.y + 10,
+        vx: -1 - Math.random() * 2,
+        vy: -Math.random() * 2,
+        life: 20,
+        color: '#fff'
+      });
+    }
+  }
+
+  function startGame() {
+    reset();
+    state = 'playing';
+    startScreen.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
+  }
+
+  function gameOver() {
+    state = 'over';
+    if (score > best) {
+      best = score;
+      localStorage.setItem('colombiaFlappyBest', best);
+    }
+    finalScoreEl.textContent = `Puntos: ${score}`;
+    bestScoreEl.textContent = `Récord: ${best}`;
+    const dest = destinations[currentDestIdx % destinations.length];
+    tipEl.textContent = `💡 ${dest.tip}`;
+    gameOverScreen.classList.remove('hidden');
+  }
+
+  // Dibujar cóndor andino
+  function drawBird() {
+    ctx.save();
+    ctx.translate(bird.x, bird.y);
+    ctx.rotate(bird.rot);
+
+    const flapOffset = bird.flapAnim > 0 ? Math.sin(bird.flapAnim * 0.5) * 6 : Math.sin(frame * 0.2) * 3;
+
+    // Sombra
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath();
+    ctx.ellipse(0, 18, 18, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ala trasera
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.moveTo(-5, -2);
+    ctx.lineTo(-18, -8 + flapOffset);
+    ctx.lineTo(-10, 4);
+    ctx.closePath();
+    ctx.fill();
+
+    // Cuerpo
+    ctx.fillStyle = '#2c2c2c';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 18, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ala delantera
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.moveTo(-3, 0);
+    ctx.lineTo(-15, 10 - flapOffset);
+    ctx.lineTo(-5, 8);
+    ctx.closePath();
+    ctx.fill();
+
+    // Collar blanco (característico del cóndor)
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.ellipse(8, 4, 8, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Cabeza
+    ctx.fillStyle = '#2c2c2c';
+    ctx.beginPath();
+    ctx.arc(14, -4, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Cresta
+    ctx.fillStyle = '#8B0000';
+    ctx.beginPath();
+    ctx.moveTo(10, -10);
+    ctx.lineTo(14, -14);
+    ctx.lineTo(16, -10);
+    ctx.closePath();
+    ctx.fill();
+
+    // Pico
+    ctx.fillStyle = '#FFA500';
+    ctx.beginPath();
+    ctx.moveTo(20, -4);
+    ctx.lineTo(26, -2);
+    ctx.lineTo(20, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // Ojo
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(16, -5, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(16.5, -5, 1, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Dibujar monumento/tubo
+  function drawPipe(pipe) {
+    const dest = pipe.dest;
+    const x = pipe.x;
+    const topH = pipe.topH;
+    const bottomY = topH + PIPE_GAP;
+    const bottomH = H - GROUND_H - bottomY;
+
+    // Tubo superior (monumento desde arriba)
+    drawMonument(x, 0, PIPE_WIDTH, topH, dest, true);
+    // Tubo inferior (monumento desde abajo)
+    drawMonument(x, bottomY, PIPE_WIDTH, bottomH, dest, false);
+  }
+
+  function drawMonument(x, y, w, h, dest, isTop) {
+    ctx.save();
+    
+    // Cuerpo principal
+    const grad = ctx.createLinearGradient(x, y, x + w, y);
+    grad.addColorStop(0, dest.color2);
+    grad.addColorStop(0.5, dest.color1);
+    grad.addColorStop(1, dest.color2);
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, w, h);
+
+    // Bordes oscuros
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillRect(x, y, 4, h);
+    ctx.fillRect(x + w - 4, y, 4, h);
+
+    // Borde del extremo (más grueso, como tapa)
+    const capH = 20;
+    const capY = isTop ? y + h - capH : y;
+    ctx.fillStyle = dest.color2;
+    ctx.fillRect(x - 5, capY, w + 10, capH);
+    ctx.fillStyle = dest.color1;
+    ctx.fillRect(x - 5, capY + 3, w + 10, capH - 6);
+
+    // Detalles decorativos según el destino
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    const patternY = isTop ? y + 30 : y + capH + 20;
+    const patternH = h - 60;
+    
+    if (patternH > 30) {
+      // Líneas decorativas
+      for (let i = 0; i < 3; i++) {
+        const ly = patternY + (patternH / 4) * (i + 1);
+        ctx.fillRect(x + 8, ly, w - 16, 2);
+      }
+      
+      // Emoji del destino en el centro
+      ctx.font = 'bold 24px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(dest.emoji, x + w/2, patternY + patternH/2);
+    }
+
+    // Textura de piedra/ladrillo
+    ctx.fillStyle = 'rgba(0,0,0,0.1)';
+    for (let row = 0; row < h; row += 15) {
+      const offset = (Math.floor(row / 15) % 2) * 10;
+      for (let col = 0; col < w; col += 20) {
+        ctx.fillRect(x + col + offset, y + row, 1, 15);
+      }
+      ctx.fillRect(x, y + row, w, 1);
+    }
+
+    ctx.restore();
+  }
+
+  function drawBackground() {
+    // Cielo degradado
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#87CEEB');
+    grad.addColorStop(0.6, '#B0E0E6');
+    grad.addColorStop(1, '#F9E79F');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Sol
+    ctx.fillStyle = '#FCD116';
+    ctx.beginPath();
+    ctx.arc(W - 60, 80, 25, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(252, 209, 22, 0.3)';
+    ctx.beginPath();
+    ctx.arc(W - 60, 80, 35, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Nubes
+    clouds.forEach(c => {
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 15 * c.s, 0, Math.PI * 2);
+      ctx.arc(c.x + 15 * c.s, c.y + 3, 12 * c.s, 0, Math.PI * 2);
+      ctx.arc(c.x - 13 * c.s, c.y + 3, 10 * c.s, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Montañas lejanas
+    ctx.fillStyle = '#3a6b3a';
+    ctx.beginPath();
+    ctx.moveTo(0, H - GROUND_H);
+    ctx.lineTo(50, H - GROUND_H - 80);
+    ctx.lineTo(120, H - GROUND_H - 40);
+    ctx.lineTo(180, H - GROUND_H - 100);
+    ctx.lineTo(250, H - GROUND_H - 50);
+    ctx.lineTo(320, H - GROUND_H - 90);
+    ctx.lineTo(W, H - GROUND_H - 30);
+    ctx.lineTo(W, H - GROUND_H);
+    ctx.closePath();
+    ctx.fill();
+
+    // Nieve en las cimas
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.moveTo(40, H - GROUND_H - 70);
+    ctx.lineTo(50, H - GROUND_H - 80);
+    ctx.lineTo(60, H - GROUND_H - 70);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(170, H - GROUND_H - 90);
+    ctx.lineTo(180, H - GROUND_H - 100);
+    ctx.lineTo(190, H - GROUND_H - 90);
+    ctx.closePath();
+    ctx.fill();
+
+    // Suelo (tierra colombiana)
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(0, H - GROUND_H, W, GROUND_H);
+    ctx.fillStyle = '#654321';
+    ctx.fillRect(0, H - GROUND_H, W, 5);
+    
+    // Detalle de granos de café
+    ctx.fillStyle = '#3d2817';
+    for (let i = 0; i < 15; i++) {
+      const px = (i * 30 + frame * PIPE_SPEED * 0.5) % W;
+      ctx.fillRect(px, H - GROUND_H + 20 + (i % 3) * 15, 3, 2);
+    }
+  }
+
+  function updateBackground() {
+    clouds.forEach(c => {
+      c.x -= c.speed;
+      if (c.x < -40) {
+        c.x = W + 40;
+        c.y = 50 + Math.random() * 200;
+      }
+    });
+  }
+
+  function updateParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.2;
+      p.life--;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+  }
+
+  function drawParticles() {
+    particles.forEach(p => {
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.life / 20;
+      ctx.fillRect(p.x, p.y, 3, 3);
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  function collide() {
+    // Suelo y techo
+    if (bird.y + bird.h/2 > H - GROUND_H) return true;
+    if (bird.y - bird.h/2 < 0) return true;
+
+    // Tuberías
+    const bx = bird.x - bird.w/2 + 5;
+    const by = bird.y - bird.h/2 + 5;
+    const bw = bird.w - 10;
+    const bh = bird.h - 10;
+
+    for (const pipe of pipes) {
+      const px = pipe.x;
+      const pw = PIPE_WIDTH;
+      const topH = pipe.topH;
+      const bottomY = topH + PIPE_GAP;
+
+      // Colisión con tubo superior
+      if (bx + bw > px && bx < px + pw) {
+        if (by < topH) return true;
+      }
+      // Colisión con tubo inferior
+      if (bx + bw > px && bx < px + pw) {
+        if (by + bh > bottomY) return true;
+      }
+    }
+    return false;
+  }
+
+  function update() {
+    if (state !== 'playing') return;
+    frame++;
+
+    // Física del pájaro
+    bird.vy += GRAVITY;
+    bird.y += bird.vy;
+    bird.rot = Math.max(-0.5, Math.min(1.2, bird.vy * 0.08));
+    if (bird.flapAnim > 0) bird.flapAnim--;
+
+    // Mover tuberías
+    for (let i = pipes.length - 1; i >= 0; i--) {
+      const pipe = pipes[i];
+      pipe.x -= PIPE_SPEED;
+
+      // Pasar tubería
+      if (!pipe.passed && pipe.x + PIPE_WIDTH < bird.x) {
+        pipe.passed = true;
+        score++;
+        scoreEl.textContent = score;
+        // Cambiar destino cada 3 puntos
+        if (score % 3 === 0) {
+          currentDestIdx = (currentDestIdx + 1) % destinations.length;
+          showBanner(destinations[currentDestIdx]);
+        }
+      }
+
+      // Eliminar y regenerar
+      if (pipe.x + PIPE_WIDTH < -10) {
+        pipes.splice(i, 1);
+        const lastX = pipes.length > 0 ? pipes[pipes.length - 1].x : W;
+        spawnPipe(lastX + PIPE_SPACING);
+      }
+    }
+
+    // Banner timer
+    if (bannerTimer > 0) {
+      bannerTimer--;
+      if (bannerTimer === 0) bannerEl.classList.remove('show');
+    }
+
+    updateBackground();
+    updateParticles();
+
+    // Colisión
+    if (collide()) {
+      gameOver();
+    }
+  }
+
+  function draw() {
+    drawBackground();
+    pipes.forEach(drawPipe);
+    drawParticles();
+    drawBird();
+
+    // Efecto game over
+    if (state === 'over') {
+      ctx.fillStyle = 'rgba(206, 17, 38, 0.3)';
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // Controles
+  function handleInput(e) {
+    if (e) e.preventDefault();
+    if (state === 'start') startGame();
+    else if (state === 'over') startGame();
+    else flap();
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' || e.code === 'ArrowUp') {
+      e.preventDefault();
+      handleInput();
+    }
+  });
+
+  touchZone.addEventListener('touchstart', handleInput, { passive: false });
+  touchZone.addEventListener('mousedown', e => {
+    if (e.target === startBtn || e.target === restartBtn) return;
+    handleInput(e);
+  });
+
+  startBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    startGame();
+  });
+  restartBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    startGame();
+  });
+
+  // Prevenir scroll en móvil
+  document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+  // Inicializar
+  reset();
+  loop();
+})();
+</script>
+</body>
+</html>
